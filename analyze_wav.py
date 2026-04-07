@@ -29,6 +29,7 @@ STATUS_ERROR = "error"
 SUSPECT_RATIO = 0.85
 MIN_EFFECTIVE_HZ = 1000.0
 DEFAULT_LOG_LEVEL = "INFO"
+HIGH_RESOLUTION_THRESHOLD = 48000
 
 
 @dataclass
@@ -391,6 +392,12 @@ def format_bits(value: Optional[int]) -> str:
     return "-" if value is None else f"{value} bit"
 
 
+def format_resolution_label(sample_rate: Optional[int]) -> str:
+    if sample_rate is None:
+        return "-"
+    return "\u9ad8\u89e3\u6790" if sample_rate > HIGH_RESOLUTION_THRESHOLD else "-"
+
+
 def status_label(status: str) -> str:
     return {
         STATUS_OK: "\u6b63\u5e38",
@@ -401,6 +408,11 @@ def status_label(status: str) -> str:
 
 def render_html(results: List[AnalysisResult], root: Path) -> str:
     total = len(results)
+    high_resolution = sum(
+        1
+        for item in results
+        if format_resolution_label(item.container_sample_rate) == "\u9ad8\u89e3\u6790"
+    )
     suspect = sum(1 for item in results if item.status == STATUS_SUSPECT)
     failed = sum(1 for item in results if item.status == STATUS_ERROR)
     rows = []
@@ -412,6 +424,7 @@ def render_html(results: List[AnalysisResult], root: Path) -> str:
             f"<td>{html.escape(item.filename)}</td>"
             f"<td>{html.escape(format_rate(item.container_sample_rate))}</td>"
             f"<td>{html.escape(format_rate(item.estimated_sample_rate))}</td>"
+            f"<td>{html.escape(format_resolution_label(item.container_sample_rate))}</td>"
             f"<td>{html.escape(format_bits(item.bit_depth))}</td>"
             f"<td class=\"{item.status}\">{html.escape(status_label(item.status))}</td>"
             f"<td>{html.escape(item.note)}</td>"
@@ -420,7 +433,7 @@ def render_html(results: List[AnalysisResult], root: Path) -> str:
 
     if not rows:
         rows.append(
-            "<tr><td colspan=\"7\" class=\"empty\">"
+            "<tr><td colspan=\"8\" class=\"empty\">"
             "\u672a\u627e\u5230 WAV \u6587\u4ef6\u3002"
             "</td></tr>"
         )
@@ -561,6 +574,10 @@ def render_html(results: List[AnalysisResult], root: Path) -> str:
         <span class="value">{suspect}</span>
       </div>
       <div class="card">
+        <span class="label">\u9ad8\u89e3\u6790</span>
+        <span class="value">{high_resolution}</span>
+      </div>
+      <div class="card">
         <span class="label">\u65e0\u6cd5\u5206\u6790</span>
         <span class="value">{failed}</span>
       </div>
@@ -573,6 +590,7 @@ def render_html(results: List[AnalysisResult], root: Path) -> str:
             <th>\u6587\u4ef6\u540d</th>
             <th>\u6587\u4ef6\u91c7\u6837\u7387</th>
             <th>\u5b9e\u9645\u91c7\u6837\u7387\uff08\u4f30\u7b97\uff09</th>
+            <th>\u89c4\u683c</th>
             <th>\u91c7\u6837\u6bd4\u7279</th>
             <th>\u72b6\u6001</th>
             <th>\u8bf4\u660e</th>
