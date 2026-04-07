@@ -47,6 +47,7 @@ LOGGER = logging.getLogger("analyze_wav")
 
 
 def parse_args() -> argparse.Namespace:
+    """解析命令行参数并返回运行配置。"""
     parser = argparse.ArgumentParser(
         description="Analyze PCM WAV files and generate an HTML report."
     )
@@ -89,6 +90,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def configure_logging(level_name: str) -> None:
+    """按指定级别初始化日志输出格式。"""
     logging.basicConfig(
         level=getattr(logging, level_name.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s %(message)s",
@@ -97,6 +99,7 @@ def configure_logging(level_name: str) -> None:
 
 
 def log_result(result: AnalysisResult) -> None:
+    """将单个文件的分析结果写入日志。"""
     LOGGER.info(
         "Completed file status=%s file=%s container_sr=%s estimated_sr=%s bit_depth=%s note=%s",
         result.status,
@@ -109,6 +112,7 @@ def log_result(result: AnalysisResult) -> None:
 
 
 def render_progress(current: int, total: int, filename: str) -> None:
+    """在终端渲染当前处理进度条。"""
     if total <= 0:
         return
     width = 24
@@ -119,15 +123,18 @@ def render_progress(current: int, total: int, filename: str) -> None:
 
 
 def finish_progress(total: int) -> None:
+    """在进度条结束后补一个换行，避免覆盖后续输出。"""
     if total > 0:
         print(file=sys.stderr, flush=True)
 
 
 def find_wav_files(root: Path) -> Iterable[Path]:
+    """递归查找输入目录下的全部 WAV 文件。"""
     return sorted(path for path in root.rglob("*.wav") if path.is_file())
 
 
 def sniff_wav_format(path: Path) -> tuple[Optional[int], Optional[int]]:
+    """从 WAV 头部读取编码格式和位深，不解码音频数据。"""
     with path.open("rb") as handle:
         if handle.read(4) != b"RIFF":
             return None, None
@@ -163,6 +170,7 @@ def sniff_wav_format(path: Path) -> tuple[Optional[int], Optional[int]]:
 
 
 def decode_pcm_frames(raw: bytes, sample_width: int, channels: int) -> np.ndarray:
+    """将 PCM 原始字节解码为归一化浮点样本，并在需要时混合为单声道。"""
     if sample_width == 1:
         data = np.frombuffer(raw, dtype=np.uint8).astype(np.float32)
         data = (data - 128.0) / 128.0
@@ -188,6 +196,7 @@ def decode_pcm_frames(raw: bytes, sample_width: int, channels: int) -> np.ndarra
 
 
 def sample_offsets(total_frames: int, sample_rate: int, max_seconds: float) -> List[int]:
+    """为长音频挑选多个采样片段的起始偏移，兼顾覆盖范围和速度。"""
     if total_frames <= 0 or sample_rate <= 0 or max_seconds <= 0:
         return [0]
 
@@ -207,6 +216,7 @@ def sample_offsets(total_frames: int, sample_rate: int, max_seconds: float) -> L
 def collect_analysis_audio(
     wav_file: wave.Wave_read, sample_rate: int, max_seconds: float
 ) -> np.ndarray:
+    """按偏移抽取多个片段并拼接成用于频谱分析的音频样本。"""
     frame_count = wav_file.getnframes()
     sample_width = wav_file.getsampwidth()
     channels = wav_file.getnchannels()
@@ -240,6 +250,7 @@ def estimate_effective_sample_rate(
     min_ratio: float,
     window_size: int,
 ) -> Optional[int]:
+    """根据频谱有效带宽估算音频内容对应的实际采样率。"""
     if samples.size < window_size or sample_rate <= 0:
         return None
     if window_size & (window_size - 1):
@@ -295,6 +306,7 @@ def analyze_file(
     max_seconds: float,
     window_size: int,
 ) -> AnalysisResult:
+    """分析单个 WAV 文件并返回报告所需的完整结果。"""
     LOGGER.debug("Analyzing file path=%s", path)
     rel_parent = path.parent.relative_to(root) if path.parent != root else Path(".")
     directory = str(rel_parent).replace("\\", "/")
@@ -385,20 +397,24 @@ def analyze_file(
 
 
 def format_rate(value: Optional[int]) -> str:
+    """将采样率格式化为带单位的展示文本。"""
     return "-" if value is None else f"{value:,} Hz"
 
 
 def format_bits(value: Optional[int]) -> str:
+    """将位深格式化为带单位的展示文本。"""
     return "-" if value is None else f"{value} bit"
 
 
 def format_resolution_label(sample_rate: Optional[int]) -> str:
+    """根据容器采样率返回“高解析”标签文本。"""
     if sample_rate is None:
         return "-"
     return "\u9ad8\u89e3\u6790" if sample_rate > HIGH_RESOLUTION_THRESHOLD else "-"
 
 
 def status_label(status: str) -> str:
+    """将内部状态值转换为中文展示文案。"""
     return {
         STATUS_OK: "\u6b63\u5e38",
         STATUS_SUSPECT: "\u7591\u4f3c\u4f2a\u65e0\u635f",
@@ -407,6 +423,7 @@ def status_label(status: str) -> str:
 
 
 def render_html(results: List[AnalysisResult], root: Path) -> str:
+    """把分析结果渲染为自包含的 HTML 报告。"""
     total = len(results)
     high_resolution = sum(
         1
@@ -608,6 +625,7 @@ def render_html(results: List[AnalysisResult], root: Path) -> str:
 
 
 def main() -> int:
+    """组织扫描、分析和报告输出的主流程。"""
     args = parse_args()
     configure_logging(args.log_level)
     root = Path(args.input).expanduser()
