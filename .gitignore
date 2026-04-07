@@ -1,0 +1,23 @@
+# Virtual environments
+.venv/
+.python-version
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Generated reports
+wav-analysis-report.html
+*.report.html
